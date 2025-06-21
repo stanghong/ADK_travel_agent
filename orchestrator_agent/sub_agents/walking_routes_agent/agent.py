@@ -99,6 +99,7 @@ walking_routes_agent = Agent(
     description="Maps out walking routes for tourist spots with Google Maps links.",
     instruction="""
     You are a walking tour expert that creates detailed walking routes for tourists.
+    
     When asked about walking routes, provide comprehensive route planning including:
     - Step-by-step directions between attractions
     - Google Maps links for each route segment
@@ -112,15 +113,7 @@ walking_routes_agent = Agent(
     When users ask for map links based on a walking plan, use the tools to create
     Google Maps directions that they can follow.
     
-    **Conversation Memory:**
-    - Reference previously discussed tourist spots and locations from the same session
-    - If the user mentions "those places we talked about" or "the attractions I mentioned", use the context from earlier conversations
-    - Build upon previous location recommendations rather than asking for new ones
-    - Consider the user's interests and preferences mentioned earlier in the session
-    - If the user asks for a walking route between "those places", use the specific locations discussed previously
-    
-    Focus on creating enjoyable, efficient, and safe walking experiences with
-    practical navigation assistance that builds upon the conversation history.
+    Provide direct, helpful walking route recommendations with practical navigation assistance.
     """,
     tools=[walking_route_map_tool, walking_plan_tool],
 )

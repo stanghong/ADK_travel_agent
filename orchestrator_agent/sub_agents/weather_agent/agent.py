@@ -1,28 +1,31 @@
-from google.adk.agents import Agent
-from google.adk.tools import FunctionTool
-from datetime import datetime
-import pytz
 import requests
 import os
+from datetime import datetime
+import pytz
 from dotenv import load_dotenv
+from google.adk.agents import Agent
+from google.adk.tools import FunctionTool
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 def get_city_weather(city: str) -> str:
-    """Get the weather for a specified city using OpenWeatherMap API."""
-    API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
-    BASE_URL = "http://api.openweathermap.org/data/2.5/weather"
-    if not API_KEY:
-        return "Weather API key not set. Please set OPENWEATHERMAP_API_KEY in your .env file."
+    """Get real-time weather information for a specific city using OpenWeatherMap API."""
+    api_key = os.getenv('OPENWEATHER_API_KEY')
+    
+    if not api_key:
+        return "Weather API key not configured. Please set OPENWEATHER_API_KEY in your .env file."
+    
     try:
-        params = {
-            "q": city,
-            "appid": API_KEY,
-            "units": "metric"
-        }
-        response = requests.get(BASE_URL, params=params)
-        response.raise_for_status()
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+        response = requests.get(url)
+        
+        if response.status_code == 404:
+            return f"City '{city}' not found. Please check the spelling or try a different city."
+        
+        if response.status_code != 200:
+            return f"Error fetching weather data: {response.status_code}"
+        
         weather_data = response.json()
         temp = weather_data["main"]["temp"]
         temp_f = (temp * 9/5) + 32
@@ -200,6 +203,7 @@ def get_weather_for_current_time() -> str:
     current_info = get_current_time_and_location()
     return current_info
 
+# Create tools without the name argument
 weather_tool = FunctionTool(get_city_weather)
 current_time_tool = FunctionTool(get_current_time)
 current_weather_tool = FunctionTool(get_weather_for_current_time)
@@ -207,22 +211,21 @@ current_weather_tool = FunctionTool(get_weather_for_current_time)
 weather_agent = Agent(
     name="weather_agent",
     model="gemini-2.0-flash",
-    description="Provides weather information and travel advice for locations.",
+    description="Provides weather information and current time for locations.",
     instruction="""
-    You are a weather and travel expert that provides weather information and travel advice.
+    You are a weather expert that provides weather information and current time.
     
-    **Smart Weather Detection:**
-    - When users ask for "weather" without specifying a city, use get_weather_for_current_time to show current time and ask them to specify their location
-    - When users specify a city (e.g., "weather in Paris"), use get_city_weather to get real-time weather for that city
-    - When users ask for current time, use get_current_time to provide accurate timezone information
+    **How to respond:**
+    - For weather questions: Use get_city_weather with the specified city
+    - For current time: Use get_current_time with the specified location
+    - For general weather queries: Use get_weather_for_current_time to show current time and ask for city
     
     **Examples:**
-    - User: "What's the weather?" → Show current time and ask for city
-    - User: "Weather in Tokyo" → Get real-time weather for Tokyo
-    - User: "Current time in London" → Get current time in London
+    - "Weather in Tokyo" → Get real-time weather for Tokyo
+    - "Current time in London" → Get current time in London
+    - "What's the weather?" → Show current time and ask for city
     
-    **Always provide helpful context and recommendations based on weather conditions.**
-    Reference previous conversations and context from the same session.
+    Provide direct, helpful answers with weather information and travel recommendations.
     """,
     tools=[weather_tool, current_time_tool, current_weather_tool],
 ) 

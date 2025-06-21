@@ -5,10 +5,12 @@ from .sub_agents.blog_writer_agent.agent import blog_writer_agent
 from .sub_agents.walking_routes_agent.agent import walking_routes_agent
 from .sub_agents.restaurant_recommendation_agent.agent import restaurant_recommendation_agent
 from .sub_agents.photo_story_agent.agent import photo_story_agent
+from .sub_agents.image_search_agent.agent import image_search_agent
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools import FunctionTool
 from datetime import datetime
 import pytz
+from urllib.parse import quote_plus
 
 def get_current_time(location: str) -> str:
     """
@@ -95,50 +97,103 @@ def get_current_time(location: str) -> str:
     except Exception as e:
         return f"Error getting time for {location}: {str(e)}"
 
+def get_attraction_image(attraction: str, location: str) -> str:
+    """
+    Returns a thumbnail image URL for the given attraction and location by searching TripAdvisor.
+    """
+    # Search TripAdvisor for the attraction and location
+    search_query = f"{attraction} {location}"
+    encoded_query = quote_plus(search_query)
+    
+    # TripAdvisor search URL - this will redirect to the attraction page
+    tripadvisor_url = f"https://www.tripadvisor.com/Search?q={encoded_query}"
+    
+    # For now, return a placeholder that indicates TripAdvisor search
+    # In a production environment, you would use web scraping or TripAdvisor API
+    return f"https://www.tripadvisor.com/Search?q={encoded_query}&searchType=attractions"
+
 current_time_tool = FunctionTool(get_current_time)
+get_attraction_image_tool = FunctionTool(get_attraction_image)
+
+# Create AgentTool instances for sub-agents
+weather_agent_tool = AgentTool(weather_agent)
+tourist_spots_agent_tool = AgentTool(tourist_spots_agent)
+walking_routes_agent_tool = AgentTool(walking_routes_agent)
+restaurant_agent_tool = AgentTool(restaurant_recommendation_agent)
+blog_writer_agent_tool = AgentTool(blog_writer_agent)
+photo_story_agent_tool = AgentTool(photo_story_agent)
+image_search_agent_tool = AgentTool(image_search_agent)
 
 root_agent = Agent(
     name="orchestrator_agent",
-    model="gemini-2.0-flash",
-    description="Orchestrates travel queries, delegating to sub-agents for weather, tourist spots, blog writing, routes, restaurants, and photo stories.",
+    model="gemini-1.5-flash",
+    description="A smart travel assistant that understands conversation context to route to the correct tool.",
     instruction="""
-    You are a travel assistant that maintains conversation context and remembers previous interactions within the same session.
-    
-    When a user asks a question, decide which sub-agent(s) to use:
-    - Weather Agent: for weather info and current time
-    - Tourist Spots Agent: for top places to visit
-    - Blog Writer Agent: to generate travel blogs
-    - Walking Routes Agent: to map out walking routes with Google Maps links
-    - Restaurant Recommendation Agent: for food suggestions
-    - Photo Story Agent: for stories based on photos
-    
-    You can also handle current time queries directly using the get_current_time tool.
-    When asked about current time in a location, use the tool to provide accurate time information.
-    
-    The Walking Routes Agent can now generate Google Maps links for walking directions between tourist spots.
-    When users ask for map links based on a walking plan, the agent will provide clickable Google Maps URLs.
-    
-    **IMPORTANT: Conversation Memory**
-    - Always reference previous conversations and context from the same session
-    - If a user refers to something mentioned earlier (like "the places we discussed" or "that walking route"), use that context
-    - Build upon previous recommendations and avoid repeating information unless asked
-    - If a user asks follow-up questions, reference the specific details from earlier in the conversation
-    - Maintain continuity in recommendations and suggestions across the session
-    
-    **Context Awareness Examples:**
-    - If user previously asked about Paris attractions, and now asks "give me a walking route between those places", use the previously mentioned locations
-    - If user asked about weather in Tokyo and now asks "what should I pack", reference the weather conditions mentioned earlier
-    - If user discussed restaurant preferences earlier, consider those when making new recommendations
-    
-    Combine results and present a helpful answer that builds upon the conversation history.
+    You are a master orchestrator for a travel agency. Your primary job is to analyze the user's request
+    **in the context of the conversation history** and route it to the correct specialized agent or tool.
+    You MUST think step-by-step to determine the user's true intent, especially for follow-up questions.
+
+    **Chain of Thought Analysis:**
+
+    1.  **Analyze the User's Full Request (Text + History):** First, carefully read the user's latest message.
+        Then, review the last few turns of the conversation to understand the context. Is the user asking a
+        follow-up question? Are they referring to a place or topic mentioned previously?
+
+    2.  **Synthesize a Self-Contained Prompt:** Based on your analysis, create a new, complete prompt for the
+        sub-agent. A sub-agent has no memory of its own; your synthesized prompt MUST contain all the
+        information it needs.
+
+        *   **Follow-up Question Example:**
+            *   *History:* "User: What's the weather in London?" -> "Assistant: It's 15°C and cloudy."
+            *   *New User Prompt:* "what about in Paris?"
+            *   *Your Synthesized Prompt for the tool:* "What is the weather in Paris?"
+
+        *   **Contextual Request Example:**
+            *   *History:* "User: Find a walking route from the Eiffel Tower to the Louvre." -> "Assistant: [Map Link]"
+            *   *New User Prompt:* "now find restaurants near the end of that route"
+            *   *Your Synthesized Prompt for the tool:* "Find restaurants near the Louvre in Paris"
+
+    3.  **Check for an Attached Image:** Check if an image is included with the CURRENT prompt.
+
+    4.  **Determine Image Relevance (CRITICAL LOGIC):**
+        *   **IF** an image is present, you MUST determine if the user's text is *directly asking about the image*.
+            Keywords for this are: "this", "this place", "this landmark", "what is this", "the history of this".
+        *   **IF** the text is about the image, use `photo_story_agent_tool`.
+        *   **IF** the text is a general question (e.g., "what are the attractions in London?") and an image
+            is attached, you MUST **IGNORE THE IMAGE** and use the tool for the text query.
+
+    **Routing Rules based on Analysis:**
+
+    *   **Photo-Specific Queries:**
+        *   `User Prompt`: "What is this landmark?" + `Image`: [Eiffel Tower] → `Action`: Use `photo_story_agent_tool`.
+
+    *   **General Queries (Image is IGNORED):**
+        *   `User Prompt`: "Best restaurants in Rome?" + `Image`: [Eiffel Tower] → `Action`: IGNORE image, use `restaurant_agent_tool` with the synthesized prompt "Find the best restaurants in Rome".
+
+    *   **Image Search Queries (with spell correction):**
+        *   `User Prompt`: "Show me a picture of the Mona Lisa" → `Action`: Use `image_search_agent_tool`.
+        *   `User Prompt`: "Find images of the Northern Lights" → `Action`: Use `image_search_agent_tool`.
+        *   `User Prompt`: "staring light of van gough" → `Synthesized Prompt`: "The Starry Night by Van Gogh" → `Action`: Use `image_search_agent_tool`.
+        *   **Rule**: If the query describes a famous artwork, landmark, or other visual concept, use the `image_search_agent_tool`. Correct obvious misspellings in the synthesized prompt to improve search accuracy.
+
+    *   **Blog Writing Queries:**
+        *   `User Prompt`: "Write a blog about my trip to Italy" → `Action`: Use `blog_writer_agent_tool`.
+        *   `User Prompt`: "Create a travel blog post about Tokyo" → `Action`: Use `blog_writer_agent_tool`.
+
+    *   **Text-Only & Contextual Queries:**
+        *   `User Prompt`: "Top tourist spots in New York?" → `Action`: Use `tourist_spots_agent_tool`.
+        *   `User Prompt`: "What time is it in Sydney?" → `Action`: Use `get_current_time`.
+
+    You MUST follow this logic precisely. Your goal is to be a smart, context-aware router.
     """,
-    sub_agents=[
-        weather_agent,
-        tourist_spots_agent,
-        blog_writer_agent,
-        walking_routes_agent,
-        restaurant_recommendation_agent,
-        photo_story_agent,
+    tools=[
+        weather_agent_tool,
+        tourist_spots_agent_tool,
+        walking_routes_agent_tool,
+        restaurant_agent_tool,
+        blog_writer_agent_tool,
+        photo_story_agent_tool,
+        image_search_agent_tool,
+        current_time_tool
     ],
-    tools=[current_time_tool],
 ) 

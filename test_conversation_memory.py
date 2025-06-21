@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import asyncio
-from agents.orchestrator_agent.agent import root_agent
 from google.adk.runners import Runner
+from orchestrator_agent.agent import root_agent
 from google.adk.sessions import InMemorySessionService
 from utils import call_agent_async
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import asyncio
-from agents.orchestrator_agent.sub_agents.weather_agent.agent import weather_agent
 from google.adk.runners import Runner
+from orchestrator_agent.sub_agents.weather_agent.agent import weather_agent
 from google.adk.sessions import InMemorySessionService
 from utils import call_agent_async
 
@@ -21,7 +21,7 @@ async def test_weather_api() -> None:
     
     # Create a session
     user_id = "test_user"
-    session = session_service.create_session(app_name="test_app", user_id=user_id, state={})
+    session = await session_service.create_session(app_name="test_app", user_id=user_id, state={})
     session_id = session.id
     
     print("🌤️ Testing Weather API Functionality")

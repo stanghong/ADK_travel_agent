@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import asyncio
-from agents.orchestrator_agent.sub_agents.weather_agent.agent import weather_agent
 from google.adk.runners import Runner
+from orchestrator_agent.sub_agents.weather_agent.agent import weather_agent
 from google.adk.sessions import InMemorySessionService
 from utils import call_agent_async
 
