@@ -1,0 +1,17 @@
+# Environments
+.env
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+
+# Swap files
+*.swp
+*~ 
