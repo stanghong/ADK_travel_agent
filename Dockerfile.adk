@@ -1,0 +1,41 @@
+# Use Python 3.10 slim image
+FROM python:3.10-slim
+
+# Set environment variables to prevent OpenTelemetry issues
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV OTEL_PYTHON_DISABLED=true
+ENV OTEL_TRACES_SAMPLER=always_off
+ENV OTEL_METRICS_EXPORTER=none
+ENV OTEL_LOGS_EXPORTER=none
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+USER app
+
+# Expose port
+EXPOSE 8000
+
+# Health check - use /dev-ui/ endpoint which returns 200
+HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=5 \
+    CMD curl -f http://localhost:8000/dev-ui/ || exit 1
+
+# Start the ADK server with proper error handling
+CMD ["python", "-u", "adk_web_server.py"] 

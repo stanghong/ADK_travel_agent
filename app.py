@@ -282,11 +282,15 @@ def run_adk_sync(_, session_id: str, user_id: str, message: str, photo_data: str
         
         response = requests.post(
             f"{API_URL}/send_message",
-            json=payload
+            json=payload,
+            timeout=60  # Add timeout
         )
         
-        if response.status_code != 200:
-            raise Exception(f"API error: {response.status_code}")
+        if response.status_code == 404 and "Session not found" in response.text:
+            # Session expired, create a new one
+            raise Exception("Session expired. Please try again.")
+        elif response.status_code != 200:
+            raise Exception(f"API error: {response.status_code} - {response.text}")
             
         data = response.json()
         if not data.get("success"):
@@ -296,6 +300,10 @@ def run_adk_sync(_, session_id: str, user_id: str, message: str, photo_data: str
             "response": data.get("response", "No response received"),
             "image_links": data.get("image_links", None)
         }
+    except requests.exceptions.Timeout:
+        raise Exception("Request timed out. Please try again.")
+    except requests.exceptions.ConnectionError:
+        raise Exception("Cannot connect to the server. Please check if the backend is running.")
     except Exception as e:
         raise Exception(f"Error running ADK: {str(e)}")
 
@@ -330,7 +338,7 @@ with st.sidebar:
     if st.button("🔄 Reset Session"):
         try:
             # Start a new backend session
-            response = requests.post(f"{API_URL}/start_session", json={"user_id": USER_ID})
+            response = requests.post(f"{API_URL}/start_session", json={"user_id": USER_ID}, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 # Clear all relevant session state keys
@@ -343,13 +351,15 @@ with st.sidebar:
                 st.session_state[USER_ID_KEY] = USER_ID
                 st.session_state[MESSAGE_HISTORY_KEY] = []
                 
-                st.success(f"New session started: ...{data.get('session_id')[-12:]}")
+                st.success(f"✅ New session started: ...{data.get('session_id')[-12:]}")
                 # Rerun to clear the chat window instantly
                 st.rerun()
             else:
-                st.error("Failed to reset session.")
+                st.error(f"❌ Failed to reset session. Status: {response.status_code}")
+        except requests.exceptions.ConnectionError:
+            st.error("❌ Cannot connect to backend API. Please check if it's running.")
         except Exception as e:
-            st.error(f"Error resetting session: {e}")
+            st.error(f"❌ Error resetting session: {e}")
     
     # Show current session info
     st.markdown(f"**Session ID:** ...{st.session_state.get(SESSION_ID_KEY, '')[-12:]}")
@@ -399,12 +409,23 @@ with st.sidebar:
 # Initialize ADK Runner and Session (if not already in session_state)
 if SESSION_ID_KEY not in st.session_state or USER_ID_KEY not in st.session_state:
     try:
+        # Test backend connectivity first
+        health_response = requests.get(f"{API_URL}/health", timeout=10)
+        if health_response.status_code != 200:
+            st.error(f"❌ Backend API is not responding (Status: {health_response.status_code})")
+            st.error("Please make sure the backend API is running on port 8080")
+            st.stop()
+        
         adk_runner, current_session_id, current_user_id = initialize_adk()
         st.session_state[SESSION_ID_KEY] = current_session_id
         st.session_state[USER_ID_KEY] = current_user_id
-        st.sidebar.success(f"ADK Initialized\nSession: ...{current_session_id[-12:]}\nUser: {current_user_id}", icon="✅")
+        st.sidebar.success(f"✅ ADK Initialized\nSession: ...{current_session_id[-12:]}\nUser: {current_user_id}")
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Cannot connect to the backend API")
+        st.error("Please make sure the backend API is running on port 8080")
+        st.stop()
     except Exception as e:
-        st.error(f"**Fatal Error:** Could not initialize the ADK Runner or Session Service: {e}", icon="❌")
+        st.error(f"❌ **Fatal Error:** Could not initialize the ADK Runner or Session Service: {e}")
         st.error("Please check the terminal logs for more details and restart the application.")
         logging.exception("Critical ADK Initialization failed in Streamlit UI context.")
         st.stop()
@@ -514,7 +535,23 @@ if prompt := st.chat_input("Ask me about travel, weather, tourist spots, or anyt
                 st.rerun()
                     
             except Exception as e:
-                error_msg = f"Sorry, I encountered an error: {str(e)}"
+                error_msg = str(e)
+                
+                # Handle specific error cases
+                if "Session expired" in error_msg:
+                    # Clear session and ask user to try again
+                    for key in [SESSION_ID_KEY, USER_ID_KEY, MESSAGE_HISTORY_KEY]:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    error_msg = "Session expired. Please try your question again - I'll start a new session for you."
+                    st.warning("🔄 Session refreshed automatically")
+                elif "Cannot connect" in error_msg:
+                    error_msg = "Cannot connect to the server. Please check if the backend is running."
+                elif "Request timed out" in error_msg:
+                    error_msg = "Request timed out. Please try again."
+                else:
+                    error_msg = f"Sorry, I encountered an error: {error_msg}"
+                
                 st.error(error_msg)
                 st.session_state[MESSAGE_HISTORY_KEY].append({"role": "assistant", "content": error_msg})
                 logging.exception("Error in chat processing")

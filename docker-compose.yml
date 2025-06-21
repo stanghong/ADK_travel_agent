@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  adk-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.adk
+    container_name: travel-assistant-adk
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_GENAI_USE_VERTEXAI=False
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      # Disable OpenTelemetry to prevent context management issues
+      - OTEL_PYTHON_DISABLED=true
+      - OTEL_TRACES_SAMPLER=always_off
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=none
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./.env:/app/.env:ro
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/dev-ui/"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: travel-assistant-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ADK_BASE_URL=http://adk-server:8000
+      - APP_NAME=orchestrator_agent
+      - USER_ID=traveler
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+    volumes:
+      - ./.env:/app/.env:ro
+    depends_on:
+      adk-server:
+        condition: service_healthy
+    networks:
+      - travel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+networks:
+  travel-network:
+    driver: bridge 

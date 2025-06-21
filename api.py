@@ -10,6 +10,10 @@ from typing import Optional
 import time
 import re
 from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration using Pydantic Settings
 class Settings(BaseSettings):
@@ -18,8 +22,8 @@ class Settings(BaseSettings):
     USER_ID: str = "traveler"
     
     class Config:
-        # Don't load from .env file to avoid validation errors
-        env_file = None
+        # Load from .env file
+        env_file = ".env"
         extra = "ignore"
 
 settings = Settings()

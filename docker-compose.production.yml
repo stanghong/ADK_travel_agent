@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  adk-server:
+    image: your-dockerhub-username/travel-assistant-adk:latest
+    container_name: travel-assistant-adk
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_GENAI_USE_VERTEXAI=False
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+    volumes:
+      - ./.env:/app/.env:ro
+    networks:
+      - travel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  backend:
+    image: your-dockerhub-username/travel-assistant-backend:latest
+    container_name: travel-assistant-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ADK_BASE_URL=http://adk-server:8000
+      - APP_NAME=orchestrator_agent
+      - USER_ID=traveler
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+    volumes:
+      - ./.env:/app/.env:ro
+    depends_on:
+      adk-server:
+        condition: service_healthy
+    networks:
+      - travel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: your-dockerhub-username/travel-assistant-frontend:latest
+    container_name: travel-assistant-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - travel-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  travel-network:
+    driver: bridge 
