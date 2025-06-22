@@ -113,22 +113,29 @@ async def send_message(request: MessageRequest):
             except Exception as e:
                 logger.warning(f"Failed to process photo data: {e}")
         
-        # First, create the session in ADK if it doesn't exist
+        # Get session data
         session_data = sessions[request.session_id]
         user_id = session_data["user_id"]
         
-        # Create session in ADK
-        adk_session_url = f"http://localhost:8000/adk/apps/orchestrator_agent/users/{user_id}/sessions/{request.session_id}"
-        async with httpx.AsyncClient() as client:
-            try:
-                session_response = await client.post(adk_session_url, timeout=10)
-                if session_response.status_code != 200:
-                    logger.warning(f"ADK session creation returned {session_response.status_code}")
-            except Exception as e:
-                logger.warning(f"Failed to create ADK session: {e}")
+        # Use the ADK app directly since it's mounted
+        if adk_app is None:
+            raise HTTPException(status_code=503, detail="ADK server not available")
+        
+        # Create a test client for the ADK app
+        from fastapi.testclient import TestClient
+        adk_client = TestClient(adk_app)
+        
+        # First, create the session in ADK
+        adk_session_url = f"/adk/apps/orchestrator_agent/users/{user_id}/sessions/{request.session_id}"
+        try:
+            session_response = adk_client.post(adk_session_url)
+            if session_response.status_code != 200:
+                logger.warning(f"ADK session creation returned {session_response.status_code}")
+        except Exception as e:
+            logger.warning(f"Failed to create ADK session: {e}")
         
         # Send message to ADK
-        adk_run_url = "http://localhost:8000/adk/run"
+        adk_run_url = "/adk/run"
         
         payload = {
             "app_name": "orchestrator_agent",
@@ -143,48 +150,48 @@ async def send_message(request: MessageRequest):
         logger.info(f"Sending message to: {adk_run_url}")
         logger.info(f"Payload: {json.dumps(payload, indent=2)}")
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(adk_run_url, json=payload, timeout=30)
+        # Send the request to the ADK app
+        response = adk_client.post(adk_run_url, json=payload)
+        
+        if response.status_code == 200:
+            adk_response = response.json()
+            logger.info(f"ADK Response Events: {json.dumps(adk_response, indent=2)}")
             
-            if response.status_code == 200:
-                adk_response = response.json()
-                logger.info(f"ADK Response Events: {json.dumps(adk_response, indent=2)}")
-                
-                # Extract the final response text
-                final_response = ""
-                if "events" in adk_response:
-                    for event in adk_response["events"]:
-                        if "content" in event and "parts" in event["content"]:
-                            for part in event["content"]["parts"]:
-                                if "text" in part:
-                                    final_response += part["text"]
-                
-                # Store message in session
-                sessions[request.session_id]["messages"].append({
-                    "role": "user",
-                    "content": request.message,
-                    "timestamp": datetime.now().isoformat()
-                })
-                
-                sessions[request.session_id]["messages"].append({
-                    "role": "assistant", 
-                    "content": final_response,
-                    "timestamp": datetime.now().isoformat()
-                })
-                
-                return {
-                    "success": True,
-                    "response": final_response,
-                    "session_id": request.session_id,
-                    "user_id": user_id
-                }
-            else:
-                logger.error(f"ADK server error: {response.text}")
-                raise HTTPException(
-                    status_code=503, 
-                    detail=f"ADK server error: {response.text}"
-                )
-                
+            # Extract the final response text
+            final_response = ""
+            if "events" in adk_response:
+                for event in adk_response["events"]:
+                    if "content" in event and "parts" in event["content"]:
+                        for part in event["content"]["parts"]:
+                            if "text" in part:
+                                final_response += part["text"]
+            
+            # Store message in session
+            sessions[request.session_id]["messages"].append({
+                "role": "user",
+                "content": request.message,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            sessions[request.session_id]["messages"].append({
+                "role": "assistant", 
+                "content": final_response,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            return {
+                "success": True,
+                "response": final_response,
+                "session_id": request.session_id,
+                "user_id": user_id
+            }
+        else:
+            logger.error(f"ADK server error: {response.text}")
+            raise HTTPException(
+                status_code=503, 
+                detail=f"ADK server error: {response.text}"
+            )
+            
     except Exception as e:
         logger.error(f"Error sending message: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send message to ADK: {str(e)}")
