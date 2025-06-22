@@ -1,5 +1,5 @@
 # Core ADK dependencies
-google-adk>=0.1.0
+google-adk==1.4.1
 
 # Web framework
 fastapi>=0.104.0

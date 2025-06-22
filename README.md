@@ -1,107 +1,274 @@
-# Stateful Multi-Agent Travel Assistant (ADK)
+# 🚀 Travel Assistant Agent
 
-This example demonstrates how to create a stateful multi-agent travel assistant in ADK, using an orchestrator agent that delegates to specialized sub-agents for travel planning, weather, tourist spots, blog writing, walking routes, restaurant recommendations, and photo stories.
+A sophisticated travel planning assistant powered by Google ADK (Agent Development Kit) with multiple specialized sub-agents for comprehensive travel recommendations.
 
-## Architecture Overview
+## 🌟 Features
 
-The system is built around an **Orchestrator Agent** (LLM) that receives user queries and delegates tasks to sub-agents:
+- **🤖 Multi-Agent Architecture**: Orchestrator agent that routes requests to specialized sub-agents
+- **🌤️ Real-time Weather**: Get current weather conditions for any destination
+- **🏛️ Tourist Attractions**: Discover top attractions and hidden gems
+- **🍽️ Restaurant Recommendations**: Find the best dining spots
+- **🚶 Walking Routes**: Get walking directions between attractions
+- **📝 Travel Blog Writing**: Generate travel blog posts
+- **📸 Photo Story Analysis**: Analyze travel photos and provide insights
+- **🖼️ Image Search**: Find images of landmarks and attractions
+- **⏰ Time Zone Support**: Get current time for any location
 
-- **Weather Agent**: Gets weather info (calls weather API)
-- **Tourist Spots Agent**: Finds top tourist spots (uses Google Search API)
-- **Blog Writer Agent**: Generates travel blogs (LLM)
-- **Walking Routes Agent**: Maps out walking routes (uses Google Search API)
-- **Restaurant Recommendation Agent**: Recommends restaurants (uses Google Search API)
-- **Photo Story Agent**: Provides background stories for photos (uses Google Search API)
-
-The orchestrator combines results and generates a comprehensive travel response.
-
-## Project Structure
+## 🏗️ Architecture
 
 ```
-8-stateful-multi-agent_copy/
-│
-├── customer_service_agent/
-│   ├── __init__.py
-│   ├── agent.py                # Root agent (now imports orchestrator_agent)
-│   └── orchestrator_agent/
-│       ├── agent.py            # Orchestrator agent definition
-│       └── sub_agents/
-│           ├── weather_agent/
-│           │   └── agent.py
-│           ├── tourist_spots_agent/
-│           │   └── agent.py
-│           ├── blog_writer_agent/
-│           │   └── agent.py
-│           ├── walking_routes_agent/
-│           │   └── agent.py
-│           ├── restaurant_recommendation_agent/
-│           │   └── agent.py
-│           └── photo_story_agent/
-│               └── agent.py
-│
-├── main.py                     # Application entry point
-├── api.py                      # FastAPI backend for chat
-├── app.py                      # Streamlit frontend for chat
-├── utils.py                    # Helper functions
-├── .env                        # Environment variables
-└── README.md                   # This documentation
+Travel Assistant
+├── Orchestrator Agent (Main Router)
+├── Weather Agent (OpenWeather API)
+├── Tourist Spots Agent (Travel Recommendations)
+├── Restaurant Agent (Dining Recommendations)
+├── Walking Routes Agent (Navigation)
+├── Blog Writer Agent (Content Generation)
+├── Photo Story Agent (Image Analysis)
+└── Image Search Agent (Visual Search)
 ```
 
-## Key Components
+## 🚀 Quick Start
 
-### Orchestrator Agent
-- Receives user queries
-- Decides which sub-agent(s) to delegate to
-- Combines results and generates a travel blog or answer
+### Prerequisites
 
-### Sub-Agents
-- **Weather Agent**: Calls a weather API for current weather
-- **Tourist Spots Agent**: Uses Google Search API to find top places
-- **Blog Writer Agent**: Uses LLM to generate travel blogs
-- **Walking Routes Agent**: Uses Google Search API to map walking routes
-- **Restaurant Recommendation Agent**: Uses Google Search API for food suggestions
-- **Photo Story Agent**: Uses Google Search API to provide background stories for photos
+- Python 3.10+
+- Google AI API Key
+- OpenWeather API Key (optional)
 
-### API Integrations
-- **Google Search API**: Used by tourist spots, walking routes, restaurant, and photo story agents
-- **Weather API**: Used by weather agent
+### Local Development
 
-## How It Works
-
-1. **User submits a travel-related query** (e.g., "Plan a day in Paris with food and walking routes")
-2. **Orchestrator agent** analyzes the query and delegates subtasks to the appropriate sub-agents
-3. **Sub-agents** fetch data from APIs or generate content
-4. **Orchestrator agent** combines the results and returns a comprehensive response (e.g., a travel blog)
-
-## Example Usage
-
-1. Start the FastAPI backend:
+1. **Clone the repository**
    ```bash
-   uvicorn api:app --reload
+   git clone <your-repo-url>
+   cd 14-travel-assistant-agent
    ```
-2. Start the Streamlit frontend:
+
+2. **Create virtual environment**
    ```bash
-   streamlit run app.py
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
-3. Open the Streamlit app in your browser, start a session, and chat with the travel assistant!
 
-## Extending the System
-- Add your API keys for Google Search and weather APIs in `.env`
-- Implement the actual API/tool logic in each sub-agent's `tools` list
-- Customize the orchestrator's instruction for your use case
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Example Conversation Flow
+4. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
 
-- **User**: "What are the top tourist spots in Tokyo and what's the weather like?"
-- **Orchestrator**: Delegates to tourist spots agent and weather agent, combines results
-- **User**: "Can you write a travel blog about my day in Tokyo with food recommendations?"
-- **Orchestrator**: Delegates to blog writer and restaurant recommendation agents, combines into a blog
+5. **Run the application**
+   ```bash
+   python adk_server_with_api.py
+   ```
 
-## Production Considerations
-- Use persistent session storage for real deployments
-- Add authentication and error handling as needed
-- Monitor API usage and costs
+6. **Access the application**
+   - API: http://localhost:8000
+   - Documentation: http://localhost:8000/docs
+   - Health Check: http://localhost:8000/health
 
-## Resources
-- [ADK Multi-Agent Systems Documentation](https://google.github.io/adk-docs/agents/multi-agent-systems/)
-- [State Management in ADK](https://google.github.io/adk-docs/sessions/state/)
+## 🐳 Docker Deployment
+
+### Local Docker
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+
+# Or build and run manually
+docker build -f Dockerfile.railway -t travel-assistant .
+docker run -p 8000:8000 --env-file .env travel-assistant
+```
+
+### Railway Deployment
+
+1. **Connect to Railway**
+   ```bash
+   # Install Railway CLI
+   npm install -g @railway/cli
+   
+   # Login to Railway
+   railway login
+   ```
+
+2. **Deploy to Railway**
+   ```bash
+   # Link to your Railway project
+   railway link
+   
+   # Deploy
+   railway up
+   ```
+
+3. **Set environment variables in Railway dashboard**
+   - `GOOGLE_API_KEY`: Your Google AI API key
+   - `OPENWEATHER_API_KEY`: Your OpenWeather API key
+   - `OTEL_PYTHON_DISABLED`: "true"
+
+## 📡 API Endpoints
+
+### Core Endpoints
+
+- `GET /health` - Health check
+- `POST /api/start_session` - Start a new chat session
+- `POST /api/send_message` - Send a message to the travel assistant
+
+### Example Usage
+
+```bash
+# Start a session
+curl -X POST http://localhost:8000/api/start_session \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user123"}'
+
+# Send a message
+curl -X POST http://localhost:8000/api/send_message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "session_id": "session-123",
+    "message": "Help me plan a trip to Paris"
+  }'
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `GOOGLE_API_KEY` | Google AI API key | Yes |
+| `OPENWEATHER_API_KEY` | OpenWeather API key | No |
+| `OTEL_PYTHON_DISABLED` | Disable OpenTelemetry | No |
+| `PORT` | Server port | No (default: 8000) |
+
+### API Keys Setup
+
+1. **Google AI API Key**
+   - Visit [Google AI Studio](https://aistudio.google.com/)
+   - Create a new API key
+   - Add to your `.env` file
+
+2. **OpenWeather API Key** (Optional)
+   - Visit [OpenWeather](https://openweathermap.org/api)
+   - Sign up for a free API key
+   - Add to your `.env` file
+
+## 🧪 Testing
+
+### Run Tests
+```bash
+# Test the API endpoints
+python test_adk_endpoints.py
+
+# Test the full application
+python test_combined_service.py
+
+# Test Docker deployment
+python test_docker_combined.py
+```
+
+### Test Examples
+
+```bash
+# Test session creation
+curl -X POST http://localhost:8000/api/start_session \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "testuser"}'
+
+# Test weather query
+curl -X POST http://localhost:8000/api/send_message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "testuser",
+    "session_id": "session-123",
+    "message": "What is the weather in Paris?"
+  }'
+```
+
+## 📁 Project Structure
+
+```
+14-travel-assistant-agent/
+├── orchestrator_agent/          # Main orchestrator agent
+│   ├── agent.py                # Main agent logic
+│   └── sub_agents/             # Specialized sub-agents
+│       ├── weather_agent/
+│       ├── tourist_spots_agent/
+│       ├── restaurant_recommendation_agent/
+│       ├── walking_routes_agent/
+│       ├── blog_writer_agent/
+│       ├── photo_story_agent/
+│       └── image_search_agent/
+├── adk_server_with_api.py      # Main FastAPI application
+├── requirements.txt            # Python dependencies
+├── Dockerfile.railway          # Railway deployment
+├── railway.toml               # Railway configuration
+├── docker-compose.yml         # Local Docker setup
+└── tests/                     # Test files
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+1. **Port 8000 already in use**
+   ```bash
+   # Find and kill the process
+   lsof -ti:8000 | xargs kill -9
+   ```
+
+2. **ADK agent not responding**
+   - Check your Google API key is valid
+   - Ensure the agent is properly registered
+   - Check the logs for error messages
+
+3. **Weather API not working**
+   - Verify your OpenWeather API key
+   - Check if the API key has the correct permissions
+
+### Logs and Debugging
+
+```bash
+# View application logs
+tail -f fastapi.log
+
+# Check Docker logs
+docker logs <container-id>
+
+# Test individual components
+python -c "from orchestrator_agent.agent import root_agent; print('Agent loaded successfully')"
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- Google ADK for the agent development framework
+- OpenWeather for weather data
+- FastAPI for the web framework
+- Railway for deployment platform
+
+## 📞 Support
+
+For support and questions:
+- Create an issue in the GitHub repository
+- Check the troubleshooting section
+- Review the API documentation at `/docs`
+
+---
+
+**Happy Travel Planning! ✈️🌍**

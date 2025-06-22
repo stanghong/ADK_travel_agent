@@ -133,18 +133,18 @@ async def send_message(request: MessageRequest):
         session_data = sessions[request.session_id]
         user_id = session_data["user_id"]
         
-        # Use the ADK app directly since it's mounted
+        # Use the ADK app directly since it's integrated
         if adk_app is None:
             raise HTTPException(status_code=503, detail="ADK server not available")
         
-        # Create a test client for the ADK app
+        # Create a test client for the main app (not the mounted ADK app)
         from fastapi.testclient import TestClient
-        adk_client = TestClient(adk_app)
+        test_client = TestClient(app)
         
         # First, create the session in ADK
         adk_session_url = f"/adk/apps/orchestrator_agent/users/{user_id}/sessions/{request.session_id}"
         try:
-            session_response = adk_client.post(adk_session_url)
+            session_response = test_client.post(adk_session_url)
             if session_response.status_code != 200:
                 logger.warning(f"ADK session creation returned {session_response.status_code}")
         except Exception as e:
@@ -166,8 +166,8 @@ async def send_message(request: MessageRequest):
         logger.info(f"Sending message to: {adk_run_url}")
         logger.info(f"Payload: {json.dumps(payload, indent=2)}")
         
-        # Send the request to the ADK app
-        response = adk_client.post(adk_run_url, json=payload)
+        # Send the request to the ADK endpoint
+        response = test_client.post(adk_run_url, json=payload)
         
         if response.status_code == 200:
             adk_response = response.json()
@@ -175,12 +175,19 @@ async def send_message(request: MessageRequest):
             
             # Extract the final response text
             final_response = ""
-            if "events" in adk_response:
-                for event in adk_response["events"]:
-                    if "content" in event and "parts" in event["content"]:
-                        for part in event["content"]["parts"]:
-                            if "text" in part:
-                                final_response += part["text"]
+            # Handle both dict (with "events") and list (direct events)
+            if isinstance(adk_response, dict) and "events" in adk_response:
+                events = adk_response["events"]
+            elif isinstance(adk_response, list):
+                events = adk_response
+            else:
+                events = []
+
+            for event in events:
+                if "content" in event and "parts" in event["content"]:
+                    for part in event["content"]["parts"]:
+                        if "text" in part:
+                            final_response += part["text"]
             
             # Store message in session
             sessions[request.session_id]["messages"].append({
@@ -214,14 +221,23 @@ async def send_message(request: MessageRequest):
 
 # Create ADK web app for UI and direct access
 try:
+    # Create ADK app with proper agent registration
     adk_app = get_fast_api_app(
         agents_dir=agents_dir,
         web=True,
     )
-    adk_app.state.agents = {"orchestrator_agent": root_agent}
-    logger.info("ADK web app created successfully")
     
-    # Mount ADK routes under /adk prefix
+    # Register the orchestrator agent properly
+    adk_app.state.agents = {"orchestrator_agent": root_agent}
+    
+    # Also ensure the agent is available in the main app context
+    app.state.orchestrator_agent = root_agent
+    app.state.adk_app = adk_app
+    
+    logger.info("ADK web app created successfully")
+    logger.info(f"Registered agents: {list(adk_app.state.agents.keys())}")
+    
+    # Mount ADK routes under /adk prefix - use the working ADK app directly
     app.mount("/adk", adk_app)
     
 except Exception as e:
