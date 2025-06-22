@@ -109,8 +109,7 @@ def create_walking_plan_with_map(locations: str) -> str:
 
 # Create tools
 walking_plan_tool = FunctionTool(
-    create_walking_plan_with_map,
-    description="Creates a multi-step walking tour plan with Google Maps links for a given list of tourist locations. Use this when a user provides two or more locations to connect."
+    create_walking_plan_with_map
 )
 
 walking_routes_agent = Agent(
