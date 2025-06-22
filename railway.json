@@ -15,7 +15,8 @@
       "variables": {
         "OTEL_PYTHON_DISABLED": "true",
         "PORT": "8000",
-        "RAILWAY_DEPLOYMENT_VERSION": "1.0.2"
+        "RAILWAY_DEPLOYMENT_VERSION": "1.0.2",
+        "GOOGLE_API_KEY": "YOUR_GOOGLE_API_KEY_HERE"
       }
     }
   }
