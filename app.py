@@ -8,9 +8,10 @@ from typing import Tuple
 import base64
 import io
 from PIL import Image
+import os
 
 # Configuration
-API_URL = "http://localhost:8080"
+API_URL = os.environ.get("API_URL", "https://adktravelagent.up.railway.app")
 USER_ID = "test_user"  # Use the same user_id as backend tests
 
 # Page configuration
