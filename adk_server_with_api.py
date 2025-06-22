@@ -13,6 +13,7 @@ from google.adk.cli.fast_api import get_fast_api_app
 from orchestrator_agent.agent import root_agent
 import base64
 import httpx
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -37,6 +38,15 @@ app = FastAPI(
     title="Travel Assistant Combined Service",
     description="Combined ADK server with backend API endpoints",
     version="1.0.2"   # Updated version to trigger redeploy
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Add startup event to log deployment info
