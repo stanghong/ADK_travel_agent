@@ -95,22 +95,32 @@ async def health_check():
 
 # Session management endpoint
 @app.post("/api/start_session")
-async def start_session(request: SessionRequest):
+async def start_session(request: Request):
     """Create a new session"""
+    # E-2-E-DEBUGGING
+    logger.info(f"--- /api/start_session CALLED ---")
+    logger.info(f"Request headers: {request.headers}")
+    
     try:
+        # We need to get the body and then parse it
+        body = await request.json()
+        user_id = body.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id is required")
+
         session_id = f"session-{int(datetime.now().timestamp())}"
         # Use a plain dict for session storage
         sessions[session_id] = {
-            "user_id": request.user_id,
+            "user_id": user_id,
             "created_at": datetime.now().isoformat(),
             "messages": []
         }
-        logger.info(f"Session created: {session_id} for user: {request.user_id}")
+        logger.info(f"Session created: {session_id} for user: {user_id}")
         return {
             "session_id": session_id,
             "success": True,
             "message": "Session started successfully",
-            "user_id": request.user_id
+            "user_id": user_id
         }
     except Exception as e:
         logger.error(f"Error creating session: {e}")
