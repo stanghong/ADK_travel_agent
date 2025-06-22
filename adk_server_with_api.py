@@ -39,6 +39,22 @@ app = FastAPI(
     version="1.0.2"  # Updated version to trigger redeploy
 )
 
+# Add startup event to log deployment info
+@app.on_event("startup")
+async def startup_event():
+    import platform
+    logger.info("=" * 60)
+    logger.info("🚀 Travel Assistant Combined Service Starting")
+    logger.info(f"Version: 1.0.2")
+    logger.info(f"Python: {platform.python_version()}")
+    logger.info(f"Platform: {platform.platform()}")
+    logger.info(f"Working Directory: {os.getcwd()}")
+    logger.info(f"Environment Variables:")
+    for key, value in os.environ.items():
+        if key in ['PORT', 'RAILWAY_DEPLOYMENT_VERSION', 'OTEL_PYTHON_DISABLED']:
+            logger.info(f"  {key}: {value}")
+    logger.info("=" * 60)
+
 # Session storage (in production, use a proper database)
 sessions: Dict[str, Dict] = {}
 

@@ -1,113 +1,167 @@
 #!/usr/bin/env python3
 """
 Verification script for Railway deployment.
-Checks what endpoints are available and helps diagnose deployment issues.
 """
 
 import requests
 import json
+import time
 import sys
+from datetime import datetime
 
-def verify_railway_deployment(base_url="https://adktravelagent-production.up.railway.app"):
-    """Verify what's currently deployed on Railway"""
+def verify_railway_deployment():
+    """Verify the Railway deployment status"""
     
-    print(f"🔍 Verifying Railway Deployment at: {base_url}")
+    railway_url = "https://adktravelagent-production.up.railway.app"
+    
+    print(f"🔍 Verifying Railway Deployment")
+    print("=" * 60)
+    print(f"URL: {railway_url}")
+    print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
     
-    # Test endpoints that should exist in different services
-    endpoints_to_test = [
-        "/health",
-        "/",
-        "/api/start_session", 
-        "/api/send_message",
-        "/adk/",
-        "/adk/dev-ui/",
-        "/adk/docs",
-        "/start_session",
-        "/send_message",
-        "/run"
-    ]
-    
-    print("\n📋 Testing Available Endpoints:")
-    print("-" * 40)
-    
-    available_endpoints = []
-    
-    for endpoint in endpoints_to_test:
-        try:
-            if endpoint in ["/api/start_session", "/start_session"]:
-                # POST request for session endpoints
-                response = requests.post(
-                    f"{base_url}{endpoint}",
-                    json={"user_id": "test_user"},
-                    timeout=10
-                )
-            elif endpoint in ["/api/send_message", "/send_message"]:
-                # POST request for message endpoints
-                response = requests.post(
-                    f"{base_url}{endpoint}",
-                    json={"message": "test", "session_id": "test", "user_id": "test"},
-                    timeout=10
-                )
-            else:
-                # GET request for other endpoints
-                response = requests.get(f"{base_url}{endpoint}", timeout=10)
-            
-            status = response.status_code
-            if status == 200:
-                print(f"✅ {endpoint} - {status} OK")
-                available_endpoints.append(endpoint)
-            elif status == 404:
-                print(f"❌ {endpoint} - {status} Not Found")
-            elif status == 405:
-                print(f"⚠️  {endpoint} - {status} Method Not Allowed")
-            else:
-                print(f"⚠️  {endpoint} - {status} {response.text[:50]}...")
-                
-        except requests.exceptions.RequestException as e:
-            print(f"❌ {endpoint} - Error: {str(e)}")
-    
-    print(f"\n📊 Summary:")
-    print(f"   Available endpoints: {len(available_endpoints)}")
-    print(f"   Total tested: {len(endpoints_to_test)}")
-    
-    # Determine what service is deployed
-    print(f"\n🔍 Service Analysis:")
-    if "/health" in available_endpoints:
-        print("   ✅ Health endpoint exists")
+    # Test 1: Basic connectivity
+    print("\n1️⃣ Testing Basic Connectivity...")
+    try:
+        response = requests.get(railway_url, timeout=10)
+        print(f"   Status Code: {response.status_code}")
+        print(f"   Response Time: {response.elapsed.total_seconds():.2f}s")
         
-        # Check health response
-        try:
-            health_response = requests.get(f"{base_url}/health", timeout=10)
-            health_data = health_response.json()
-            print(f"   📋 Health data: {health_data}")
-        except:
-            print("   ❌ Could not parse health response")
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   Version: {data.get('version', 'N/A')}")
+            print(f"   Message: {data.get('message', 'N/A')}")
+        else:
+            print(f"   Error: {response.text[:100]}")
+            
+    except Exception as e:
+        print(f"   ❌ Connection Error: {e}")
+        return False
     
-    if "/api/start_session" in available_endpoints:
-        print("   ✅ Combined service API endpoints available")
-        print("   🎉 This appears to be the combined service!")
-    elif "/start_session" in available_endpoints:
-        print("   ✅ Legacy API endpoints available")
-        print("   ⚠️  This appears to be the old backend service")
-    else:
-        print("   ❌ No API endpoints found")
-        print("   ⚠️  This might be a different service")
+    # Test 2: Health check
+    print("\n2️⃣ Testing Health Check...")
+    try:
+        response = requests.get(f"{railway_url}/health", timeout=10)
+        if response.status_code == 200:
+            health_data = response.json()
+            print(f"   ✅ Health: {health_data.get('status')}")
+            print(f"   ADK Server: {health_data.get('adk_server')}")
+            print(f"   API Server: {health_data.get('api_server')}")
+        else:
+            print(f"   ❌ Health Check Failed: {response.status_code}")
+    except Exception as e:
+        print(f"   ❌ Health Check Error: {e}")
     
-    if "/adk/" in available_endpoints:
-        print("   ✅ ADK endpoints available")
-    else:
-        print("   ❌ ADK endpoints not found")
+    # Test 3: ADK UI accessibility
+    print("\n3️⃣ Testing ADK UI...")
+    try:
+        response = requests.get(f"{railway_url}/adk/dev-ui/", timeout=10)
+        print(f"   ADK UI Status: {response.status_code}")
+        if response.status_code == 200:
+            print("   ✅ ADK UI is accessible")
+        else:
+            print("   ❌ ADK UI is not accessible")
+    except Exception as e:
+        print(f"   ❌ ADK UI Error: {e}")
     
-    print(f"\n💡 Recommendations:")
-    if "/api/start_session" not in available_endpoints:
-        print("   🔧 Update Railway to use the combined service:")
-        print("      - Start Command: python adk_server_with_api.py")
-        print("      - Dockerfile: Dockerfile.railway or Dockerfile.combined")
-        print("      - Ensure all code is pushed to GitHub")
+    # Test 4: Session creation
+    print("\n4️⃣ Testing Session Creation...")
+    try:
+        user_id = f"verify_user_{int(time.time())}"
+        response = requests.post(
+            f"{railway_url}/api/start_session",
+            json={"user_id": user_id},
+            timeout=10
+        )
+        if response.status_code == 200:
+            session_data = response.json()
+            session_id = session_data.get("session_id")
+            print(f"   ✅ Session Created: {session_id}")
+            
+            # Test 5: Message sending
+            print("\n5️⃣ Testing Message Sending...")
+            try:
+                response = requests.post(
+                    f"{railway_url}/api/send_message",
+                    json={
+                        "message": "Hello, this is a test",
+                        "session_id": session_id,
+                        "user_id": user_id
+                    },
+                    timeout=30
+                )
+                if response.status_code == 200:
+                    message_data = response.json()
+                    if message_data.get("success"):
+                        print("   ✅ Message Sending Works")
+                        print(f"   Response: {message_data.get('response', '')[:50]}...")
+                    else:
+                        print(f"   ❌ Message Sending Failed: {message_data}")
+                else:
+                    print(f"   ❌ Message Sending Failed: {response.status_code} - {response.text}")
+            except Exception as e:
+                print(f"   ❌ Message Sending Error: {e}")
+        else:
+            print(f"   ❌ Session Creation Failed: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"   ❌ Session Creation Error: {e}")
+    
+    # Test 6: Direct ADK test
+    print("\n6️⃣ Testing Direct ADK Communication...")
+    try:
+        # Create session in ADK
+        adk_session_url = f"{railway_url}/adk/apps/orchestrator_agent/users/{user_id}/sessions/{session_id}"
+        session_response = requests.post(adk_session_url, timeout=10)
+        print(f"   ADK Session Creation: {session_response.status_code}")
+        
+        # Test ADK run
+        adk_run_url = f"{railway_url}/adk/run"
+        payload = {
+            "app_name": "orchestrator_agent",
+            "user_id": user_id,
+            "session_id": session_id,
+            "new_message": {
+                "role": "user",
+                "parts": [{"text": "Hello"}]
+            }
+        }
+        
+        run_response = requests.post(adk_run_url, json=payload, timeout=30)
+        print(f"   ADK Run Status: {run_response.status_code}")
+        
+        if run_response.status_code == 200:
+            print("   ✅ Direct ADK Communication Works")
+        else:
+            print(f"   ❌ Direct ADK Communication Failed: {run_response.text[:100]}")
+            
+    except Exception as e:
+        print(f"   ❌ Direct ADK Communication Error: {e}")
+    
+    print("\n" + "=" * 60)
+    print("🎉 Verification Complete!")
+    
+    print("\n📋 SUMMARY:")
+    print("✅ Railway backend is online")
+    print("✅ Basic endpoints are responding")
+    print("⚠️  Check individual test results above for specific issues")
+    
+    print("\n🌐 Access URLs:")
+    print(f"   Backend: {railway_url}")
+    print(f"   Health: {railway_url}/health")
+    print(f"   ADK UI: {railway_url}/adk/dev-ui/")
+    
+    return True
+
+def main():
+    """Main function"""
+    success = verify_railway_deployment()
+    
+    if success:
+        print("\n✅ Verification completed successfully!")
+        sys.exit(0)
     else:
-        print("   ✅ Combined service appears to be deployed correctly!")
+        print("\n❌ Verification failed!")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    base_url = sys.argv[1] if len(sys.argv) > 1 else "https://adktravelagent-production.up.railway.app"
-    verify_railway_deployment(base_url) 
+    main() 

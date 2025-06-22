@@ -13,6 +13,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -26,6 +27,9 @@ COPY . .
 
 # Create uploads directory
 RUN mkdir -p uploads
+
+# Add build timestamp to force rebuild
+RUN echo "Build timestamp: $(date)" > /app/build_info.txt
 
 # Expose port (Railway will set PORT environment variable)
 EXPOSE 8000
