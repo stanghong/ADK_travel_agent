@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  combined-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.combined
+    container_name: travel-assistant-combined
+    ports:
+      - "8000:8000"
+    environment:
+      - OTEL_PYTHON_DISABLED=true
+      - PORT=8000
+    volumes:
+      - ./uploads:/app/uploads
+      - ./.env:/app/.env:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - travel-network
+
+networks:
+  travel-network:
+    driver: bridge 
