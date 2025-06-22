@@ -36,7 +36,7 @@ agents_dir = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(
     title="Travel Assistant Combined Service",
     description="Combined ADK server with backend API endpoints",
-    version="1.0.2"  # Updated version to trigger redeploy
+    version="1.0.2"   # Updated version to trigger redeploy
 )
 
 # Add startup event to log deployment info
