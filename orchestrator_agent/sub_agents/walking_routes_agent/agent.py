@@ -41,21 +41,39 @@ def generate_walking_route_map(start_location: str, end_location: str, waypoints
 def create_walking_plan_with_map(locations: str) -> str:
     """
     Create a comprehensive walking plan with map links for multiple tourist spots.
+    If a city name is provided instead of specific locations, a default tour for that city is generated.
     
     Args:
-        locations: Comma-separated list of tourist spots (e.g., "Eiffel Tower, Louvre Museum, Notre Dame, Arc de Triomphe")
+        locations: Comma-separated list of spots (e.g., "Eiffel Tower, Louvre Museum") or a city name (e.g., "Paris").
     
     Returns:
-        Walking plan with map links
+        A step-by-step walking plan with Google Maps links.
     """
     try:
+        # Predefined popular walking routes for major cities
+        popular_routes = {
+            "paris": "Eiffel Tower, Arc de Triomphe, Louvre Museum, Notre Dame Cathedral",
+            "london": "Buckingham Palace, Big Ben, Tower of London, The British Museum",
+            "rome": "Colosseum, Roman Forum, Trevi Fountain, Pantheon",
+            "new york": "Times Square, Central Park, Statue of Liberty, Empire State Building"
+        }
+
+        # Check if the input is a known city for a default tour
+        city_key = locations.lower().strip()
+        if city_key in popular_routes:
+            plan_intro = f"Here is a suggested walking tour for the top spots in {city_key.title()}:\n\n"
+            locations = popular_routes[city_key]
+        else:
+            plan_intro = "Here is your custom walking route:\n\n"
+
         # Split locations and clean them
         spots = [spot.strip() for spot in locations.split(",") if spot.strip()]
         
         if len(spots) < 2:
-            return "Please provide at least 2 locations to create a walking route."
+            return "Please provide at least 2 locations or a major city name to create a walking route."
         
         plan = "🚶‍♂️ **Walking Route Plan**\n\n"
+        plan += plan_intro
         
         # Create route between consecutive spots
         for i in range(len(spots) - 1):
@@ -90,30 +108,21 @@ def create_walking_plan_with_map(locations: str) -> str:
         return f"Error creating walking plan: {str(e)}"
 
 # Create tools
-walking_route_map_tool = FunctionTool(generate_walking_route_map)
-walking_plan_tool = FunctionTool(create_walking_plan_with_map)
+walking_plan_tool = FunctionTool(
+    fn=create_walking_plan_with_map,
+    description="Creates a multi-step walking tour plan with Google Maps links for a given list of tourist locations. Use this when a user provides two or more locations to connect."
+)
 
 walking_routes_agent = Agent(
     name="walking_routes_agent",
-    model="gemini-2.0-flash",
-    description="Maps out walking routes for tourist spots with Google Maps links.",
+    model="gemini-1.5-flash",  # Ensure model is consistent
+    description="Generates a step-by-step walking tour plan with Google Maps links for multiple tourist spots.",
     instruction="""
-    You are a walking tour expert that creates detailed walking routes for tourists.
-    
-    When asked about walking routes, provide comprehensive route planning including:
-    - Step-by-step directions between attractions
-    - Google Maps links for each route segment
-    - Estimated walking times and distances
-    - Points of interest along the way
-    - Rest stops and refreshment options
-    - Safety tips and best practices
-    - Alternative routes for different preferences
-    
-    Use the available tools to generate map links for walking routes.
-    When users ask for map links based on a walking plan, use the tools to create
-    Google Maps directions that they can follow.
-    
-    Provide direct, helpful walking route recommendations with practical navigation assistance.
+    You are a specialized agent that creates step-by-step walking tour plans.
+    Your primary purpose is to use the `create_walking_plan_with_map` tool.
+
+    When a user provides a list of two or more locations for a walking route, you MUST call the `create_walking_plan_with_map` tool with the locations.
+    Do not answer conversationally; your only job is to format the locations and call the tool.
     """,
-    tools=[walking_route_map_tool, walking_plan_tool],
+    tools=[walking_plan_tool],
 )

@@ -138,16 +138,13 @@ async def send_message(request: MessageRequest):
         # Prepare message parts
         message_parts = [{"text": request.message}]
         if request.photo_data:
-            try:
-                image_data = base64.b64decode(request.photo_data)
-                message_parts.append({
-                    "inline_data": {
-                        "mime_type": "image/jpeg",
-                        "data": request.photo_data
-                    }
-                })
-            except Exception as e:
-                logger.warning(f"Failed to process photo data: {e}")
+            # The image and the text must be in separate parts
+            message_parts.append({
+                "inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": request.photo_data
+                }
+            })
         
         # Get session data
         session_data = sessions[request.session_id]
