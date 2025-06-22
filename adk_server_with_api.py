@@ -94,11 +94,11 @@ async def health_check():
     )
 
 # Session management endpoint
-@app.post("/api/start_session")
+@app.post("/start_session")
 async def start_session(request: Request):
     """Create a new session"""
     # E-2-E-DEBUGGING
-    logger.info(f"--- /api/start_session CALLED ---")
+    logger.info(f"--- /start_session CALLED ---")
     logger.info(f"Request headers: {request.headers}")
     
     try:
@@ -127,7 +127,7 @@ async def start_session(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
 
 # Message sending endpoint
-@app.post("/api/send_message")
+@app.post("/send_message")
 async def send_message(request: MessageRequest):
     """Send a message to the ADK server"""
     try:
@@ -273,8 +273,8 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "/health",
-            "start_session": "/api/start_session",
-            "send_message": "/api/send_message",
+            "start_session": "/start_session",
+            "send_message": "/send_message",
             "adk_ui": "/adk/dev-ui/",
             "adk_run": "/adk/run"
         }

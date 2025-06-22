@@ -254,12 +254,11 @@ st.markdown("""
 
 @st.cache_resource
 def initialize_adk() -> Tuple[object, str, str]:
-    """Initialize ADK Runner and Session. Cached to run once per session."""
+    """Initialize ADK and start a session."""
     try:
-        response = requests.post(f"{API_URL}/start_session", json={"user_id": USER_ID})
-        if response.status_code != 200:
-            raise Exception(f"Failed to start session: {response.status_code}")
-        
+        url = f"{API_URL}/start_session"
+        response = requests.post(url, json={"user_id": USER_ID})
+        response.raise_for_status()
         data = response.json()
         if not data.get("success"):
             raise Exception("Failed to initialize session")
@@ -269,8 +268,9 @@ def initialize_adk() -> Tuple[object, str, str]:
         raise Exception(f"Failed to initialize ADK: {str(e)}")
 
 def run_adk_sync(_, session_id: str, user_id: str, message: str, photo_data: str = None) -> dict:
-    """Run ADK agent turn synchronously through API."""
+    """Send a message to the backend and get the response."""
     try:
+        url = f"{API_URL}/send_message"
         payload = {
             "session_id": session_id,
             "user_id": user_id,
@@ -282,7 +282,7 @@ def run_adk_sync(_, session_id: str, user_id: str, message: str, photo_data: str
             payload["photo_data"] = photo_data
         
         response = requests.post(
-            f"{API_URL}/send_message",
+            url,
             json=payload,
             timeout=60  # Add timeout
         )
